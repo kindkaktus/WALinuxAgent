@@ -73,8 +73,7 @@ if IsLinux():
 else:
     # OpenBSD settings
     PossibleEthernetInterfaces = ["em0", "em1", "em2"]
-    RulesFiles = [ "/lib/udev/rules.d/75-persistent-net-generator.rules",
-                   "/etc/udev/rules.d/70-persistent-net.rules" ]
+    RulesFiles = []
     VarLibDhcpDirectories = ["/sbin/dhclient"]
     EtcDhcpClientConfFiles = ["/etc/dhclient.conf"]
 LibDir = "/var/lib/waagent"
@@ -2428,7 +2427,7 @@ def Install():
         Error(GuestAgentLongName + " is not compatible with network-manager.")
         return 1
     
-    #Check for pyasn1 if we can't use 'ssh-keygen -i -m PKCS8' (Debian)
+    # Check for pyasn1 if we can't use 'ssh-keygen -i -m PKCS8' (Debian)
     if not IsDebian():
         try:
             m = __import__('pyasn1')
@@ -2443,28 +2442,39 @@ def Install():
             shutil.move(a, ".")
             Warn("Moved " + a + " -> " + LibDir + "/" + GetLastPathElement(a) )
 
-    if IsUbuntu() and not IsPackagedUbuntu():
-        # Support for Ubuntu's upstart configuration
-        filename="waagent.conf"
-        filepath = "/etc/init/" + filename
-        SetFileContents(filepath, Init_Ubuntu)
-        os.chmod(filepath, 0644)
+    #
+    # Add deamon to startup
+    #
+    if IsLinux():
+        if IsUbuntu() and not IsPackagedUbuntu():
+            # Support for Ubuntu's upstart configuration
+            filename="waagent.conf"
+            filepath = "/etc/init/" + filename
+            SetFileContents(filepath, Init_Ubuntu)
+            os.chmod(filepath, 0644)
 
-    elif not IsPackagedUbuntu():
-        # Regular init.d configurations
-        filename = "waagent"
-        filepath = "/etc/init.d/" + filename
-        distro = IsRedHat() + IsDebian() * 2 + IsSuse() * 3
-        if distro == 0:
-            Error("Unable to detect Linux Distribution.")
-            return 1
-        init = [[Init_RedHat, "chkconfig --add " + filename],
-                [Init_Debian, "update-rc.d " + filename + " defaults"],
-                [Init_Suse, "insserv " + filename]][distro - 1]
-        SetFileContents(filepath, init[0])
-        os.chmod(filepath, 0755)
-        Run(init[1])
+        elif not IsPackagedUbuntu():
+            # Regular init.d configurations
+            filename = "waagent"
+            filepath = "/etc/init.d/" + filename
+            distro = IsRedHat() + IsDebian() * 2 + IsSuse() * 3
+            if distro == 0:
+                Error("Unable to detect Linux Distribution.")
+                return 1
+            init = [[Init_RedHat, "chkconfig --add " + filename],
+                    [Init_Debian, "update-rc.d " + filename + " defaults"],
+                    [Init_Suse, "insserv " + filename]][distro - 1]
+            SetFileContents(filepath, init[0])
+            os.chmod(filepath, 0755)
+            Run(init[1])
+            
+    else: 
+        # assume OpenBSD
+        Warn("@todo Add to OpenBSD startup")
 
+    #
+    # Install config
+    #
     if os.path.isfile("/etc/waagent.conf"):
         try:
             os.remove("/etc/waagent.conf.old")
@@ -2476,13 +2486,22 @@ def Install():
         except:
             pass
     SetFileContents("/etc/waagent.conf", WaagentConf)
-    SetFileContents("/etc/logrotate.d/waagent", WaagentLogrotate)
+    
+    if IsLinux():
+        SetFileContents("/etc/logrotate.d/waagent", WaagentLogrotate)
+    else:
+        # assume OpenBSD
+        Warn("@todo Configure OpenBSD log rotation")
+        
     filepath = "/etc/ssh/sshd_config"
     ReplaceFileContentsAtomic(filepath, "\n".join(filter(lambda a: not
         a.startswith("ClientAliveInterval"),
         GetFileContents(filepath).split('\n'))) + "ClientAliveInterval 180\n")
     Log("Configured SSH client probing to keep connections alive.")
-    ApplyVNUMAWorkaround()
+    
+    if IsLinux():
+        ApplyVNUMAWorkaround()
+        
     return 0
 
 def Uninstall():
@@ -2647,14 +2666,6 @@ for a in sys.argv[1:]:
     else:
         args.append(a)
         
-######################
-# quick test  
-for a in args:
-    if re.match("^([-/]*)macaddress", a):
-        print GetMacAddress()
-        sys.exit(0)
-######################
-
 Config = ConfigurationProvider()
 
 verbose = Config.get("Logs.Verbose")
