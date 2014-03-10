@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 #
 # Windows Azure Linux Agent
 #
@@ -2402,6 +2402,10 @@ def RevertVNUMAWorkaround():
 def Install():
     os.chmod(sys.argv[0], 0755)
     SwitchCwd()
+    
+    #
+    # Check dependencies
+    #
     requiredDeps = [ "/sbin/route", "/sbin/shutdown" ]
     if IsDebian():
         requiredDeps += [ "/usr/sbin/update-rc.d" ]
@@ -2435,6 +2439,7 @@ def Install():
             Error(GuestAgentLongName + " requires python-pyasn1 for your Linux distribution.")
             return 1
         
+    # Disable network rules that may interfere with networking
     for a in RulesFiles:
         if os.path.isfile(a):
             if os.path.isfile(GetLastPathElement(a)):
