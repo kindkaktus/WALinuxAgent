@@ -1696,6 +1696,21 @@ class Agent(Util):
             i += length + 2
         return endpoint
 
+    def IsDefaultRouteMissing(self):
+        try:
+            if IsLinux():
+                for line in RunGetOutput("route -n")[1].split('\n'):
+                    if line.startswith("0.0.0.0 "):
+                        return False
+            else:
+                for line in RunGetOutput("route -n show -inet")[1].split('\n'):
+                    if line.startswith("default "):
+                        return False
+        except:
+            pass
+            
+        return True
+        
     def DoDhcpWork(self):
         #
         # Discover the wire server via DHCP option 245.
@@ -1722,13 +1737,7 @@ class Agent(Util):
                 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
                 sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
                 sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-                missingDefaultRoute = True
-                try:
-                    for line in RunGetOutput("route -n")[1].split('\n'):
-                        if line.startswith("0.0.0.0 "):
-                            missingDefaultRoute = False
-                except:
-                    pass
+                missingDefaultRoute = self.IsDefaultRouteMissing()
                 if missingDefaultRoute:
                     # This is required because sending after binding to 0.0.0.0 fails with
                     # network unreachable when the default gateway is not set up.
