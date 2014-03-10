@@ -61,11 +61,22 @@ Children = []
 VMM_STARTUP_SCRIPT_NAME='install'
 VMM_CONFIG_FILE_NAME='linuxosconfiguration.xml'
 
-PossibleEthernetInterfaces = ["seth0", "seth1", "eth0", "eth1"]
-RulesFiles = [ "/lib/udev/rules.d/75-persistent-net-generator.rules",
-               "/etc/udev/rules.d/70-persistent-net.rules" ]
-VarLibDhcpDirectories = ["/var/lib/dhclient", "/var/lib/dhcpcd", "/var/lib/dhcp"]
-EtcDhcpClientConfFiles = ["/etc/dhcp/dhclient.conf", "/etc/dhcp3/dhclient.conf"]
+def IsLinux():
+    return (platform.uname()[0] == "Linux")
+
+if IsLinux():
+    PossibleEthernetInterfaces = ["seth0", "seth1", "eth0", "eth1"]
+    RulesFiles = [ "/lib/udev/rules.d/75-persistent-net-generator.rules",
+                   "/etc/udev/rules.d/70-persistent-net.rules" ]
+    VarLibDhcpDirectories = ["/var/lib/dhclient", "/var/lib/dhcpcd", "/var/lib/dhcp"]
+    EtcDhcpClientConfFiles = ["/etc/dhcp/dhclient.conf", "/etc/dhcp3/dhclient.conf"]
+else:
+    # OpenBSD settings
+    PossibleEthernetInterfaces = ["em0", "em1", "em2"]
+    RulesFiles = [ "/lib/udev/rules.d/75-persistent-net-generator.rules",
+                   "/etc/udev/rules.d/70-persistent-net.rules" ]
+    VarLibDhcpDirectories = ["/sbin/dhclient"]
+    EtcDhcpClientConfFiles = ["/etc/dhclient.conf"]
 LibDir = "/var/lib/waagent"
 
 # backport subprocess.check_output if not defined ( for python version < 2.7)
@@ -101,9 +112,6 @@ def Ord(a):
     if type(a) == type("a"):
         a = ord(a)
     return a
-
-def IsLinux():
-    return (platform.uname()[0] == "Linux")
 
 def DetectLinuxDistro():
     global LinuxDistro
@@ -502,18 +510,16 @@ def Linux_ioctl_GetInterfaceMac(ifname):
     return ''.join(['%02X' % Ord(char) for char in info[18:24]])
 
 def GetIpv4Address():
-    if IsLinux():
-        for ifname in PossibleEthernetInterfaces:
-            try:
-                return Linux_ioctl_GetIpv4Address(ifname)
-            except IOError, e:
-                pass
-    else:
+    for ifname in PossibleEthernetInterfaces:
         try:
-            return socket.gethostbyname(socket.gethostname())
+            if IsLinux():
+                return Linux_ioctl_GetIpv4Address(ifname)
+            else:
+                return os.popen('ifconfig "' + ifname  + '" inet | grep -e "\s*inet.*" | awk \'{print $2}\'', 'r').read().strip()
         except Exception, e:
-            ErrorWithPrefix("GetIpv4Address:", str(e))
-            ErrorWithPrefix("GetIpv4Address:", traceback.format_exc())
+            pass
+                
+    raise Exception("Failed to determine IPv4 addess")
 
 def HexStringToByteArray(a):
     b = ""
@@ -524,9 +530,14 @@ def HexStringToByteArray(a):
 def GetMacAddress():
     for ifname in PossibleEthernetInterfaces:
         try:
-            a = Linux_ioctl_GetInterfaceMac(ifname)
-            break
-        except IOError, e:
+            if IsLinux():
+                a = Linux_ioctl_GetInterfaceMac(ifname)
+                break
+            else:
+                a = os.popen('ifconfig "' + ifname  + '" inet | grep -e "\s*lladdr.*" | awk \'{print $2}\'', 'r').read().strip()
+                a = a.replace(':','')
+                break
+        except Exception, e:
             pass
     return HexStringToByteArray(a)
 
@@ -2630,6 +2641,14 @@ for a in sys.argv[1:]:
         sys.exit(Uninstall())
     else:
         args.append(a)
+        
+######################
+# quick test  
+for a in args:
+    if re.match("^([-/]*)macaddress", a):
+        print GetMacAddress()
+        sys.exit(0)
+######################
 
 Config = ConfigurationProvider()
 
