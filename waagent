@@ -46,7 +46,7 @@ import xml.dom.minidom
     
 GuestAgentName = "WALinuxAgent"
 GuestAgentLongName = "Windows Azure Linux Agent"
-GuestAgentVersion = "WALinuxAgent-1.4.1"
+GuestAgentVersion = "WALinuxAgent-1.4.1.p1"
 ProtocolVersion = "2011-12-31" #WARNING this value is used to confirm the correct fabric protocol.
 
 Config = None
@@ -387,15 +387,20 @@ def DeleteAccount(user):
     return
 
 def ReloadSshd():
-    name = None
-    if IsRedHat() or IsSuse():
-        name = "sshd"
-    if IsDebian():
-        name = "ssh"
-    if name == None:
-        return
-    if not Run("service " + name + " status | grep running"):
-        Run("service " + name + " reload")
+    if IsLinux():
+        name = None
+        if IsRedHat() or IsSuse():
+            name = "sshd"
+        if IsDebian():
+            name = "ssh"
+        if name == None:
+            return
+        if not Run("service " + name + " status | grep running"):
+            Run("service " + name + " reload")
+    else: # OpenBSD (customized)
+        if not Run("/etc/ssh/sshstart.sh status | grep running"):
+            Run("/etc/ssh/sshstart.sh NO")
+            Run("/etc/ssh/sshstart.sh")
 
 def IsInRangeInclusive(a, low, high):
     return (a >= low and a <= high)
