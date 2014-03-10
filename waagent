@@ -394,10 +394,10 @@ def ReloadSshd():
             name = "ssh"
         if name == None:
             return
-        if not Run("service " + name + " status | grep running"):
+        if Run("service " + name + " status | grep running") == 0:
             Run("service " + name + " reload")
     else: # OpenBSD (customized)
-        if not Run("/etc/ssh/sshstart.sh status | grep running"):
+        if Run("/etc/ssh/sshstart.sh status | grep running") == 0:
             Run("/etc/ssh/sshstart.sh NO")
             Run("/etc/ssh/sshstart.sh")
 
@@ -2475,7 +2475,10 @@ def Install():
             
     else: 
         # assume OpenBSD
-        Warn("@todo Add to OpenBSD startup")
+        if Run("grep -q waagent /etc/rc.local") != 0:
+            LogIfVerbose("Installing waagent to startup")
+            Run("echo \"echo -n Starting " + GuestAgentName + "\" >> /etc/rc.local")
+            Run("echo \"/usr/sbin/waagent -daemon\" >> /etc/rc.local")
 
     #
     # Install config
