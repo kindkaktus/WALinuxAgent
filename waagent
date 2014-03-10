@@ -1771,7 +1771,10 @@ class Agent(Util):
         Log("Setting host name: " + name)
         UpdateAndPublishHostNameCommon(name)
         for ethernetInterface in PossibleEthernetInterfaces:
-            Run("ifdown " + ethernetInterface + " && ifup " + ethernetInterface,chk_err=False) # We supress error logging on error.
+            if IsLinux():
+                Run("ifdown " + ethernetInterface + " && ifup " + ethernetInterface,chk_err=False) # We supress error logging on error.
+            else:
+                Run("sh /etc/netstart " + ethernetInterface,chk_err=False) # We supress error logging on error.     
         self.RestoreRoutes()
 
     def RestoreRoutes(self):
@@ -2023,6 +2026,9 @@ class Agent(Util):
         Log("Provisioning image completed.")
         return error
 
+    #
+    # The main daemon entry point
+    #
     def Run(self):
         if IsLinux():
             SetFileContents("/var/run/waagent.pid", str(os.getpid()) + "\n")
