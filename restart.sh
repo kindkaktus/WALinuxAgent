@@ -9,6 +9,6 @@ fi
 
 cp waagent /usr/sbin/
 echo "Installing waagent..."
-/usr/sbin/waagent -install
+/usr/sbin/waagent -install -verbose
 echo "Starting waagent..."
-/usr/sbin/waagent -daemon
+/usr/sbin/waagent -daemon -verbose
