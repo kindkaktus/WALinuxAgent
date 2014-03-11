@@ -1607,7 +1607,12 @@ class Agent(Util):
         net = self.IntegerToIpAddressV4String(net)
         mask = self.IntegerToIpAddressV4String(mask)
         gateway = self.IntegerToIpAddressV4String(gateway)
-        Run("/sbin/route add -net " + net + " netmask " + mask + " gw " + gateway,chk_err=False)  # We supress error logging on error.
+        if IsLinux():
+            Run("/sbin/route add -net " + net + " netmask " + mask + " gw " + gateway,chk_err=False)  # We supress error logging on error.
+        else: # OpenBSD
+            #@todo respect net and mask
+            Run("/sbin/route delete default", chk_err=False)  # We supress error logging on error. @todo delete only if already exists
+            Run("/sbin/route -n add -host default " + gateway, chk_err=False)  # We supress error logging on error.
 
     def HandleDhcpResponse(self, sendData, receiveBuffer):
         LogIfVerbose("HandleDhcpResponse")
