@@ -1745,10 +1745,10 @@ class Agent(Util):
                     Log("DoDhcpWork: Missing default route - adding broadcast route for DHCP.")
                     Run("route add 255.255.255.255 dev " + ifname,chk_err=False)   # We supress error logging on error.
                 sock.bind(("0.0.0.0", 68)) 
-                sock.sendto(sendData, ("<broadcast>", 67))
+                bytes_sent = sock.sendto(sendData, ("<broadcast>", 67))
                 sock.settimeout(10)
-                Log("DoDhcpWork: Setting socket.timeout=10, entering recv")
-                receiveBuffer = sock.recv(1024)
+                Log("DoDhcpWork: %d bytes sent, entering recv" % bytes_sent)
+                (receiveBuffer, addr) = sock.recvfrom(1024)
                 endpoint = self.HandleDhcpResponse(sendData, receiveBuffer)
                 if endpoint == None:
                     LogIfVerbose("DoDhcpWork: No endpoint found")
@@ -2458,12 +2458,15 @@ def Install():
             return 1
         
     # Disable network rules that may interfere with networking
-    for a in RulesFiles:
-        if os.path.isfile(a):
-            if os.path.isfile(GetLastPathElement(a)):
-                os.remove(GetLastPathElement(a))
-            shutil.move(a, ".")
-            Warn("Moved " + a + " -> " + LibDir + "/" + GetLastPathElement(a) )
+    if IsLinux():
+        for a in RulesFiles:
+            if os.path.isfile(a):
+                if os.path.isfile(GetLastPathElement(a)):
+                    os.remove(GetLastPathElement(a))
+                shutil.move(a, ".")
+                Warn("Moved " + a + " -> " + LibDir + "/" + GetLastPathElement(a) )
+    else:
+        Warn("@todo disable /ets/netstart? make sure to restore it on uninstall")
 
     #
     # Add deamon to startup
