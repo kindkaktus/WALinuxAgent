@@ -2087,7 +2087,10 @@ class Agent(Util):
         try:
             timeout = Config.get("OS.RootDeviceScsiTimeout")
             if timeout != None:
-                SetFileContents("/sys/block/" + DeviceForIdePort(0) + "/device/timeout", timeout)
+                if IsLinux():
+                    SetFileContents("/sys/block/" + DeviceForIdePort(0) + "/device/timeout", timeout)
+                else:
+                    Warn("set RootDeviceScsiTimeout for OpenBSD")
         except:
             pass
 
@@ -2367,8 +2370,8 @@ Role.StateConsumer=None                 # Specified program is invoked with "Rea
 Role.ConfigurationConsumer=None         # Specified program is invoked with XML file argument specifying role configuration.
 Role.TopologyConsumer=None              # Specified program is invoked with XML file argument specifying role topology.
 
-Provisioning.Enabled=y                  #
-Provisioning.DeleteRootPassword=y       # Password authentication for root account will be unavailable.
+Provisioning.Enabled=n                  # @todo disabled for debug purposes only, enable this when the associated functionality works in OpenBSD
+Provisioning.DeleteRootPassword=n       # Password authentication for root account @todo disabled for debug purposes only, enable this when the associated functionality works in OpenBSD
 Provisioning.RegenerateSshHostKeyPair=y # Generate fresh host key pair.
 Provisioning.SshHostKeyPairType=rsa     # Supported values are "rsa", "dsa" and "ecdsa".
 Provisioning.MonitorHostName=y          # Monitor host name changes and publish changes via DHCP requests.
