@@ -273,10 +273,11 @@ def GetNodeTextData(a):
 
 def GetHome():
     home = None
-    try:
-        home = GetLineStartingWith("HOME", "/etc/default/useradd").split('=')[1].strip()
-    except:
-        pass
+    if IsLinux():
+        try:
+            home = GetLineStartingWith("HOME", "/etc/default/useradd").split('=')[1].strip()
+        except:
+            pass
     if (home == None) or (home.startswith("/") == False):
         home = "/home"
     return home
@@ -1465,7 +1466,7 @@ def UpdateAndPublishHostNameCommon(name):
                     + "\n".join(filter(lambda a: not a.startswith("DHCP_HOSTNAME"), GetFileContents(filepath).split('\n'))))
 
     # Debian
-    if IsDebian():
+    if IsDebian() or not IsLinux():
         SetFileContents("/etc/hostname", name)
 
     for filepath in EtcDhcpClientConfFiles:
